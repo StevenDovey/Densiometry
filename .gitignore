@@ -1,0 +1,10 @@
+# Generated pipeline output (regenerate with: Rscript process_scn.R)
+output/
+
+# R session artefacts
+.Rhistory
+.RData
+.Rproj.user/
+
+# Stray default R graphics device file
+Rplots.pdf
