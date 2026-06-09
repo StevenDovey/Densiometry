@@ -143,6 +143,29 @@ trim_air_channels <- function(density, threshold = 200L) {
 
 
 # ---------------------------------------------------------------------------
+# .otsu_threshold — parameter-free split of a set of values into "low" and
+# "high" groups (Otsu's method).  Used to separate noise / false-ring peak
+# prominences from real annual-ring prominences on a per-core basis.
+# ---------------------------------------------------------------------------
+.otsu_threshold <- function(x, nbins = 256L) {
+  x <- x[is.finite(x)]
+  if (length(x) < 3L) return(if (length(x)) min(x) else 0)
+  rng <- range(x)
+  if (diff(rng) == 0) return(rng[1L])
+  brk <- seq(rng[1L], rng[2L], length.out = nbins + 1L)
+  h   <- hist(x, breaks = brk, plot = FALSE)
+  p   <- h$counts / sum(h$counts)
+  mids <- h$mids
+  w  <- cumsum(p)                       # class 0 weight
+  m  <- cumsum(p * mids)
+  mT <- m[length(m)]
+  denom <- w * (1 - w)
+  sigma_b <- ifelse(denom > 0, (mT * w - m)^2 / denom, 0)
+  mids[which.max(sigma_b)]
+}
+
+
+# ---------------------------------------------------------------------------
 # detect_ring_boundaries
 # Locate annual ring boundaries (latewood -> earlywood transitions) from the
 # density trace.  Returns the integer channel positions that mark the FIRST
@@ -174,6 +197,7 @@ detect_ring_boundaries <- function(density,
                                    min_ring_mm       = 2,
                                    smooth_n          = 5L,
                                    prominence_frac   = 0.08,
+                                   adaptive          = FALSE,
                                    manual_boundaries = NULL) {
 
   n      <- length(density)
@@ -212,7 +236,6 @@ detect_ring_boundaries <- function(density,
 
   # Prominence of each peak relative to its nearest troughs on each side.
   span <- max(sm) - min(sm)
-  thr  <- prominence_frac * span
   prom <- numeric(length(peaks))
   for (j in seq_along(peaks)) {
     p  <- peaks[j]
@@ -221,6 +244,10 @@ detect_ring_boundaries <- function(density,
     right_min <- if (length(rt)) sm[min(rt)] else min(sm[p:n])
     prom[j]   <- sm[p] - max(left_min, right_min)
   }
+
+  # Threshold: fixed fraction of the trace range, or — when adaptive — Otsu's
+  # split of THIS core's own peak-prominence distribution (noise vs real rings).
+  thr <- if (isTRUE(adaptive)) .otsu_threshold(prom) else prominence_frac * span
 
   keep   <- prom >= thr
   peaks  <- peaks[keep]
@@ -524,6 +551,7 @@ process_scn <- function(filepath,
                         smooth_n          = 5L,
                         air_threshold     = 200L,
                         prominence_frac   = 0.08,
+                        adaptive          = FALSE,
                         manual_boundaries = NULL,
                         rings_offset      = NULL,
                         plot_dir          = NULL) {
@@ -545,6 +573,7 @@ process_scn <- function(filepath,
       min_ring_mm       = min_ring_mm,
       smooth_n          = smooth_n,
       prominence_frac   = prominence_frac,
+      adaptive          = adaptive,
       manual_boundaries = manual_boundaries[[core_id]]
     )
 
