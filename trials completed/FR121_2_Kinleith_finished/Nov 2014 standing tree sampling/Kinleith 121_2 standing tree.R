@@ -1,0 +1,18 @@
+rm(list=objects())
+setwd("Q:/Forest Systems/Projects/Silviculture breeds trials/FR121_2_Kinleith/Nov 2014 standing tree sampling")
+streedata <-read.table('standing tree data.csv',sep=',',header=TRUE)
+head(streedata)
+str(streedata)
+summary(streedata)
+#breed graphs
+boxplot(DBH~Breed, data = streedata ,xlab= "Breed", las=1, ylab= "DBHOB (mm)", main = "DBHOB")
+boxplot(TotalHt~Breed, data= streedata, xlab= "Breed", las=1, ylab= "Total height (m)", main = "Tree height")
+boxplot(CrownHt~Breed, data= streedata, xlab= "Breed", las=1, ylab= "Crown height (m)", main = "Crown height")
+boxplot(ST300.Average~Breed, data= streedata, xlab= "Breed", las=1, ylab= "Standing tree velocity (km/s)", main = "ST300 velocity")
+boxplot(Den.Average~Breed, data= streedata, xlab= "Breed", las=1, ylab= "Outerwood basic density (kg/m3)", main = "Density")
+# stocking graphs
+boxplot(DBH~Stocking, data = streedata ,xlab= "Stocking", las=1, ylab= "DBHOB (mm)", main = "DBHOB")
+boxplot(TotalHt~Stocking, data= streedata, xlab= "Stocking", las=1, ylab= "Total height (m)", main = "Tree height")
+boxplot(CrownHt~Stocking, data= streedata, xlab= "Stocking", las=1, ylab= "Crown height (m)", main = "Crown height")
+boxplot(ST300.Average~Stocking, data= streedata, xlab= "Stocking", las=1, ylab= "Standing tree velocity (km/s)", main = "ST300 velocity")
+boxplot(Den.Average~Stocking, data= streedata, xlab= "Stocking", las=1, ylab= "Outerwood basic density (kg/m3)", main = "Density")
