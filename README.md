@@ -50,8 +50,13 @@ human-in-the-loop part is confirming the boundaries.
 |------|-------------|
 | `densitometry.R` | Core library — `parse_scn()`, `trim_air_channels()`, `detect_ring_boundaries()`, `ring_statistics()`, `format_editor_output()`, `plot_density_profile()`, `process_scn()` |
 | `process_scn.R` | Driver script — runs the full pipeline on `AK6.SCN`, writes per-core/combined CSVs and annotated PNG plots to `output/densitometry/` |
+| `parity_check.R` | Compares the detector against `AK6.DAT` and searches the best per-core `prominence_frac`; writes parity/calibration CSVs |
 | `AK6.SCN` | Example raw scan: Akarana Road, Wharerata Forest (Red Needle Cast study) |
 | `AK6.DAT` | Operator-edited reference output for the same cores (parity check) |
+
+Operator/analysis helpers in `densitometry.R`: `parse_dat()`, `compare_to_dat()`,
+`calibrate_prominence()`, `calibrate_to_dat()`, `apply_ring_edits()`,
+`review_suspects()`.
 
 ---
 
@@ -132,6 +137,35 @@ results <- process_scn(
   rings_offset      = list("1" = 2L)   # first captured ring is ring 3
 )
 ```
+
+### Reviewing suspect rings
+
+Step through a core's flagged rings and accept / merge / split each.  In an
+interactive session `review_suspects()` prompts per ring; passing `decisions`
+runs it unattended (and makes the workflow scriptable):
+
+```r
+d <- trim_air_channels(parse_scn("AK6.SCN")[["1"]]$density)
+b <- detect_ring_boundaries(d, prominence_frac = 0.08)
+
+# unattended: dissolve the false ring at ring 8, split ring 25 at channel 690
+fixed <- review_suspects(d, b,
+  decisions = list("8" = "merge-left", "25" = "split 690"))
+```
+
+### Per-core tuning against a `.DAT`
+
+`prominence_frac` is the one knob that trades sensitivity (catching weak inner
+rings) against false positives.  When an edited `.DAT` exists, calibrate it per
+core automatically:
+
+```r
+cores <- parse_scn("AK6.SCN");  dat <- parse_dat("AK6.DAT")
+calibrate_to_dat(cores, dat)    # best prominence_frac + ring count per core
+```
+
+On AK6 this raises exact ring-count agreement from 4/15 to **10/15 cores**.
+Run `Rscript parity_check.R` for the full report.
 
 ---
 

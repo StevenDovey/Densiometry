@@ -573,8 +573,222 @@ process_scn <- function(filepath,
       )
     }
 
-    results[[core_id]] <- list(core = core, boundaries = bounds, stats = stats)
+    results[[core_id]] <- list(core = core, density = d,
+                               boundaries = bounds, stats = stats)
   }
 
   invisible(results)
+}
+
+
+# ===========================================================================
+# Operator tools: parity checking, per-core tuning, suspect-ring review
+# ===========================================================================
+
+# ---------------------------------------------------------------------------
+# parse_dat
+# Read an operator-edited .DAT file into a named list of per-core data frames
+# (one row per ring).  Used as ground truth for parity checks and tuning.
+# Two-piece cores keep their "a"/"b" suffix as written in the .DAT.
+# ---------------------------------------------------------------------------
+parse_dat <- function(filepath) {
+  lines    <- readLines(filepath, warn = FALSE)
+  core_hdr <- grep("^Core : ", lines)
+  ids      <- trimws(sub("^Core : ", "", lines[core_hdr]))
+
+  cols <- c("ring", "year", "outer_radius_mm", "ring_width_mm", "ew_width_mm",
+            "lw_width_mm", "pct_latewood", "incr_area_cm2", "total_area_cm2",
+            "ring_mean", "ew_density", "lw_density", "uniformity",
+            "min_density", "max_density", "range_density")
+
+  res <- list()
+  for (i in seq_along(core_hdr)) {
+    start <- core_hdr[i]
+    end   <- if (i < length(core_hdr)) core_hdr[i + 1L] - 1L else length(lines)
+    block <- lines[start:end]
+    rowln <- grep("^\\s*[0-9]+\\s+[0-9]{4}\\s+", block, value = TRUE)
+    if (!length(rowln)) next
+    m <- lapply(rowln, function(L) suppressWarnings(as.numeric(strsplit(trimws(L), "\\s+")[[1]])))
+    m <- m[vapply(m, length, integer(1)) >= 16L]
+    if (!length(m)) next
+    df <- as.data.frame(do.call(rbind, lapply(m, function(v) v[1:16])))
+    names(df) <- cols
+    res[[ids[i]]] <- df
+  }
+  res
+}
+
+
+# ---------------------------------------------------------------------------
+# compare_to_dat
+# Per-core comparison of detected results against a parsed .DAT.  Reports the
+# ring-count difference and, on the overlapping outer rings, the RMSE of ring
+# width (mm) and ring-mean density (kg/m3).  Cores are matched by base ID
+# (two-piece "a"/"b" .DAT cores are summed for the merged scan core).
+# ---------------------------------------------------------------------------
+compare_to_dat <- function(results, dat) {
+  dat_base <- sub("[ab]$", "", names(dat))
+  out <- data.frame()
+  for (cid in names(results)) {
+    r_stats <- results[[cid]]$stats
+    pick    <- which(dat_base == cid)
+    if (!length(pick)) next
+    d_n     <- sum(vapply(dat[pick], nrow, integer(1)))
+    d_df    <- do.call(rbind, dat[pick])
+
+    n_ov <- min(nrow(r_stats), nrow(d_df))
+    # align on the OUTER rings (bark end), where both sequences are reliable
+    rw_r <- rev(r_stats$ring_width_mm)[seq_len(n_ov)]
+    rw_d <- rev(d_df$ring_width_mm)[seq_len(n_ov)]
+    rm_r <- rev(r_stats$ring_mean)[seq_len(n_ov)]
+    rm_d <- rev(d_df$ring_mean)[seq_len(n_ov)]
+
+    out <- rbind(out, data.frame(
+      core_id        = cid,
+      n_rings_R      = nrow(r_stats),
+      n_rings_DAT    = d_n,
+      diff           = nrow(r_stats) - d_n,
+      width_rmse_mm  = round(sqrt(mean((rw_r - rw_d)^2)), 2),
+      ringmean_rmse  = round(sqrt(mean((rm_r - rm_d)^2)), 1),
+      stringsAsFactors = FALSE
+    ))
+  }
+  out
+}
+
+
+# ---------------------------------------------------------------------------
+# calibrate_prominence
+# Search prominence_frac (over a grid) for the value whose detected ring count
+# best matches target_n for a single core's density trace.  On ties the LARGER
+# fraction is chosen (fewer, more confident rings).  Returns the chosen value,
+# the achieved count, and the full grid for inspection.
+# ---------------------------------------------------------------------------
+calibrate_prominence <- function(density, target_n,
+                                 step_mm         = 0.3,
+                                 ew_lw_threshold = 500L,
+                                 min_ring_mm     = 2,
+                                 smooth_n        = 5L,
+                                 grid            = seq(0.02, 0.30, by = 0.005)) {
+  ns <- vapply(grid, function(f) {
+    b <- detect_ring_boundaries(density, step_mm, ew_lw_threshold,
+                                min_ring_mm, smooth_n, prominence_frac = f)
+    length(b) + 1L
+  }, integer(1))
+  err  <- abs(ns - target_n)
+  best <- which(err == min(err))
+  bf   <- grid[best[length(best)]]            # largest frac among ties
+  list(prominence_frac = bf,
+       n_rings         = ns[match(bf, grid)],
+       target          = target_n,
+       grid            = data.frame(prominence_frac = grid, n_rings = ns))
+}
+
+
+# ---------------------------------------------------------------------------
+# calibrate_to_dat
+# Convenience wrapper: calibrate prominence_frac per core against the ring
+# counts in a parsed .DAT.  Returns a data.frame of the best fraction and
+# resulting count for every core.
+# ---------------------------------------------------------------------------
+calibrate_to_dat <- function(cores, dat, air_threshold = 200L, ...) {
+  dat_base <- sub("[ab]$", "", names(dat))
+  out <- data.frame()
+  for (cid in names(cores)) {
+    pick <- which(dat_base == cid)
+    if (!length(pick)) next
+    target <- sum(vapply(dat[pick], nrow, integer(1)))
+    d      <- trim_air_channels(cores[[cid]]$density, air_threshold)
+    cal    <- calibrate_prominence(d, target, step_mm = cores[[cid]]$step_mm, ...)
+    out <- rbind(out, data.frame(core_id = cid, target_n = target,
+                                 prominence_frac = cal$prominence_frac,
+                                 n_rings = cal$n_rings,
+                                 stringsAsFactors = FALSE))
+  }
+  out
+}
+
+
+# ---------------------------------------------------------------------------
+# apply_ring_edits
+# Apply operator boundary corrections to a detected ring set and recompute
+# statistics.  `edits` is a named list keyed by ring_no; each value is one of:
+#   "merge-left"  — dissolve the boundary at this ring's inner edge
+#   "merge-right" — dissolve the boundary at this ring's outer edge
+#   "split <ch>"  — insert a new boundary at channel <ch>
+#   "keep"        — no change
+# All edits are resolved to channel positions against the ORIGINAL numbering
+# first, so several edits can be applied in one pass without index drift.
+# ---------------------------------------------------------------------------
+apply_ring_edits <- function(density, boundaries, edits,
+                             step_mm         = 0.3,
+                             ew_lw_threshold = 500L,
+                             rings_offset    = 0L) {
+  b      <- as.integer(boundaries)
+  n      <- length(density)
+  starts <- c(1L, b)
+  remove_ch <- integer(0); add_ch <- integer(0)
+
+  for (rn in names(edits)) {
+    k   <- as.integer(rn) - rings_offset
+    act <- tolower(trimws(edits[[rn]]))
+    if (act %in% c("merge-left", "merge_left", "mergeleft", "l")) {
+      if (k >= 2L && k <= length(starts)) remove_ch <- c(remove_ch, starts[k])
+    } else if (act %in% c("merge-right", "merge_right", "mergeright", "r")) {
+      if (k >= 1L && (k + 1L) <= length(starts)) remove_ch <- c(remove_ch, starts[k + 1L])
+    } else if (startsWith(act, "split") || startsWith(act, "s")) {
+      ch <- suppressWarnings(as.integer(gsub("[^0-9]", "", act)))
+      if (!is.na(ch)) add_ch <- c(add_ch, ch)
+    }
+  }
+
+  b  <- setdiff(b, remove_ch)
+  b  <- sort(unique(c(b, add_ch)))
+  b  <- b[b >= 2L & b <= n]
+  nb <- detect_ring_boundaries(density, step_mm, ew_lw_threshold,
+                               manual_boundaries = b)
+  ring_statistics(density, nb, step_mm, ew_lw_threshold, rings_offset)
+}
+
+
+# ---------------------------------------------------------------------------
+# review_suspects
+# Step through the suspect (possible false / intra-annual) rings of a detected
+# core and resolve each.  In an interactive session it prompts per ring; when
+# `decisions` is supplied (named list keyed by ring_no) it runs unattended,
+# which also makes the workflow scriptable and testable.
+# Returns the corrected ring-statistics data.frame.
+# ---------------------------------------------------------------------------
+review_suspects <- function(density, boundaries,
+                            step_mm         = 0.3,
+                            ew_lw_threshold = 500L,
+                            rings_offset    = 0L,
+                            decisions       = NULL) {
+  stats <- ring_statistics(density, boundaries, step_mm, ew_lw_threshold, rings_offset)
+  susp  <- which(stats$suspect)
+  if (!length(susp)) { message("No suspect rings to review."); return(invisible(stats)) }
+
+  if (!is.null(decisions)) {
+    return(apply_ring_edits(density, boundaries, decisions,
+                            step_mm, ew_lw_threshold, rings_offset))
+  }
+
+  if (!interactive()) {
+    message(length(susp), " suspect ring(s); pass `decisions` to resolve non-interactively.")
+    return(invisible(stats))
+  }
+
+  edits <- list()
+  for (i in susp) {
+    rn <- stats$ring_no[i]
+    cat(sprintf("\nRing %d  | width %.1f mm | LW peak %s | %s\n",
+                rn, stats$ring_width_mm[i],
+                ifelse(is.na(stats$lw_peak_density[i]), "-", stats$lw_peak_density[i]),
+                stats$suspect_reason[i]))
+    ans <- trimws(readline("  [Enter]=keep  l=merge-left  r=merge-right  s<ch>=split : "))
+    if (ans %in% c("l", "left"))        edits[[as.character(rn)]] <- "merge-left"
+    else if (ans %in% c("r", "right"))  edits[[as.character(rn)]] <- "merge-right"
+    else if (startsWith(ans, "s"))      edits[[as.character(rn)]] <- paste0("split", gsub("[^0-9]", "", ans))
+  }
+  apply_ring_edits(density, boundaries, edits, step_mm, ew_lw_threshold, rings_offset)
 }
