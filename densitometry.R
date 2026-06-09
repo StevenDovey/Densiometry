@@ -496,13 +496,14 @@ plot_density_profile <- function(density,
     text(mids, y_max * 0.97, labels = stats$ring_no, cex = 0.6, col = cols, srt = 90)
   }
 
-  legend("topright",
+  legend("bottomright",
          legend = c("Density", sprintf("EW/LW thr (%d)", ew_lw_threshold),
                     "Latewood", "Ring boundary", "Suspect ring", "LW peak"),
          col = c("grey25", "firebrick", "#ffe9b0", "steelblue3", "red", "darkgreen"),
          lty = c(1, 2, NA, 3, 3, NA), pch = c(NA, NA, 15, NA, NA, 25),
          pt.bg = c(NA, NA, NA, NA, NA, "darkgreen"),
-         lwd = c(0.8, 1, NA, 0.9, 1.4, NA), bty = "n", cex = 0.75)
+         lwd = c(0.8, 1, NA, 0.9, 1.4, NA),
+         bty = "o", bg = "white", box.col = "grey70", cex = 0.75)
 
   invisible(NULL)
 }
