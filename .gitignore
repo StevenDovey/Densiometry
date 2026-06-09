@@ -1,10 +1,39 @@
-# Generated pipeline output (regenerate with: Rscript process_scn.R)
-output/
+# =============================================================================
+# Densiometry — whitelist .gitignore
+#
+# This repo tracks only source code and densitometry INPUT data (.SCN raw
+# scans + .DAT operator-edited references).  The source trial folders are a
+# multi-GB mix of images, zips, databases and raw scanner intermediates that
+# must never enter git, so we ignore everything by default and re-allow only
+# the file types we want.  `git add .` over a copied trial tree then picks up
+# just the .SCN/.DAT pairs and scripts.
+# =============================================================================
 
-# R session artefacts
+# Ignore everything...
+*
+
+# ...but descend into directories so nested files can be re-included
+!*/
+
+# Repo metadata & docs
+!.gitignore
+!*.md
+
+# Source code
+!*.R
+
+# Densitometry data (raw scans + edited references; both letter cases)
+!*.SCN
+!*.scn
+!*.DAT
+!*.dat
+
+# -----------------------------------------------------------------------------
+# Still exclude generated pipeline output and R session artefacts, even though
+# some would otherwise match the rules above.
+# -----------------------------------------------------------------------------
+output/
+Rplots.pdf
 .Rhistory
 .RData
 .Rproj.user/
-
-# Stray default R graphics device file
-Rplots.pdf
