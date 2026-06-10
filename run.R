@@ -1,4 +1,4 @@
-#11.06.26 02:00 NZST
+#10.06.26 20:21 NZST
 # ---------------------------------------------------------------------------
 # run.R
 # Front door for new scans. Point it at a root folder; it finds every folder
@@ -11,6 +11,7 @@
 # Requires: ring_review.R, densitometry.R
 # ---------------------------------------------------------------------------
 
+# setwd(dirname(rstudioapi::getSourceEditorContext()$path))   # uncomment when sourcing in RStudio
 source("ring_review.R")
 
 root    <- commandArgs(trailingOnly = TRUE)[1]

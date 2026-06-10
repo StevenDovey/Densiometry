@@ -1,4 +1,4 @@
-#10.06.26 17:20 NZST
+#10.06.26 20:21 NZST
 # ---------------------------------------------------------------------------
 # parity_check.R
 # Compare the detector against the operator-edited AK6.DAT and search the best
@@ -7,6 +7,7 @@
 # Requires: densitometry.R
 # ---------------------------------------------------------------------------
 
+# setwd(dirname(rstudioapi::getSourceEditorContext()$path))   # uncomment when sourcing in RStudio
 source("densitometry.R")
 
 scn_file   <- "AK6.SCN"
