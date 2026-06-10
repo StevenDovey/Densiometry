@@ -10,7 +10,7 @@
 # Spacing-estimated ring proposals are shown as tomato dashed lines; click one
 # to accept it as a confirmed boundary. Suspect boundaries are shown in firebrick.
 #
-# Click DONE (or right-click in the pop-out window) to advance to the next core.
+# Click DONE to advance to the next core. Click EXIT to stop and resume later.
 # Click EXIT at any time to stop — already-edited cores are saved and skipped on
 # the next run. Progress is stored in review_resume.csv at the root folder.
 #
