@@ -456,8 +456,8 @@ plot_density_profile <- function(density,
            col = "#ffe9b0", border = NA)
   }
 
-  abline(h = ew_lw_threshold, col = "firebrick", lty = 2, lwd = 1)
-  lines(x_mm, density, lwd = 0.8, col = "grey25")
+  abline(h = ew_lw_threshold, col = "firebrick", lty = 2, lwd = 3)
+  lines(x_mm, density, lwd = 1.6, col = "grey25")
 
   ring_starts <- c(1L, boundaries)
   ring_ends   <- c(boundaries - 1L, length(density))
@@ -465,7 +465,7 @@ plot_density_profile <- function(density,
     susp_b <- if (!is.null(stats)) stats$suspect[-1] else rep(FALSE, length(boundaries))
     abline(v = boundaries * step_mm,
            col = ifelse(susp_b, "red", "steelblue3"),
-           lty = 3, lwd = ifelse(susp_b, 1.4, 0.9))
+           lty = 3, lwd = ifelse(susp_b, 4, 3.5))
   }
 
   pk <- attr(boundaries, "peak_channel")
@@ -484,7 +484,7 @@ plot_density_profile <- function(density,
          col = c("grey25", "firebrick", "#ffe9b0", "steelblue3", "red", "darkgreen"),
          lty = c(1, 2, NA, 3, 3, NA), pch = c(NA, NA, 15, NA, NA, 25),
          pt.bg = c(NA, NA, NA, NA, NA, "darkgreen"),
-         lwd = c(0.8, 1, NA, 0.9, 1.4, NA),
+         lwd = c(1.6, 3, NA, 4, 4, NA),
          bty = "o", bg = "white", box.col = "grey70", cex = 0.75)
 
   invisible(NULL)
