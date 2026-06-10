@@ -1,4 +1,4 @@
-#10.06.26 21:15 NZST
+#10.06.26 22:30 NZST
 # ---------------------------------------------------------------------------
 # FRI Direct-Scanning X-Ray Densitometer data processing.
 # Reimplements the EDITOR program from Cown and Clement (1983), Wood Science
@@ -136,6 +136,109 @@ trim_air_channels <- function(density, threshold = 200L) {
 
 
 # ---------------------------------------------------------------------------
+# .boundaries_from_peaks: place each boundary at the steepest density drop
+# between consecutive latewood peaks.
+# ---------------------------------------------------------------------------
+.boundaries_from_peaks <- function(sm, peaks, n) {
+  if (length(peaks) < 2L) return(integer(0))
+  b <- integer(length(peaks) - 1L)
+  for (k in seq_len(length(peaks) - 1L)) {
+    p1 <- peaks[k]; p2 <- peaks[k + 1L]
+    seg_trough <- p1 + which.min(sm[p1:p2]) - 1L
+    b[k] <- if (seg_trough <= p1 + 1L) p1 + 1L else p1 + which.min(diff(sm[p1:seg_trough]))
+  }
+  b
+}
+
+
+# ---------------------------------------------------------------------------
+# .gap_fill_boundaries: where a gap is wider than the local width trend allows,
+# insert the strongest sub-threshold edges inside it. The local expected width
+# is the median of the neighbouring gaps, so the test follows the smooth
+# decline in ring width rather than an absolute width. A gap near gap_k times
+# the expected width is taken to hide round(gap / expected) - 1 missed rings.
+# ---------------------------------------------------------------------------
+.gap_fill_boundaries <- function(sm, bounds, n, span, peaks, troughs,
+                                 gap_k, weak_frac, min_ch) {
+  starts <- c(1L, bounds); ends <- c(bounds - 1L, n)
+  gaps   <- ends - starts + 1L
+  if (length(gaps) < 2L) return(bounds)
+
+  exp_w <- vapply(seq_along(gaps), function(i) {
+    lo <- max(1L, i - 3L); hi <- min(length(gaps), i + 3L)
+    stats::median(gaps[setdiff(lo:hi, i)])
+  }, numeric(1))
+
+  cand_ch <- integer(0); cand_drop <- numeric(0)
+  for (p in peaks) {
+    rt <- troughs[troughs > p]; t <- if (length(rt)) min(rt) else n
+    cand_ch   <- c(cand_ch, if (t > p + 1L) p + which.min(diff(sm[p:t])) else p + 1L)
+    cand_drop <- c(cand_drop, sm[p] - sm[t])
+  }
+
+  new <- integer(0)
+  for (i in seq_along(gaps)) {
+    if (is.na(exp_w[i]) || exp_w[i] <= 0) next
+    if (gaps[i] <= gap_k * exp_w[i]) next
+    n_ins <- round(gaps[i] / exp_w[i]) - 1L
+    if (n_ins < 1L) next
+    inside <- cand_ch > starts[i] + min_ch & cand_ch < ends[i] - min_ch &
+              cand_drop >= weak_frac * span
+    cc <- cand_ch[inside]; cd <- cand_drop[inside]
+    if (!length(cc)) next
+    cc <- cc[order(cd, decreasing = TRUE)]
+    sel <- integer(0)
+    for (c0 in cc) {
+      if (length(sel) >= n_ins) break
+      if (all(abs(c0 - c(sel, bounds)) > exp_w[i] * 0.5)) sel <- c(sel, c0)
+    }
+    new <- c(new, sel)
+  }
+  sort(unique(c(bounds, new)))
+}
+
+
+# ---------------------------------------------------------------------------
+# .attach_ring_attributes: compute per-ring peak, prominence, latewood and
+# suspect flags on a final boundary set, independent of how it was detected.
+# ---------------------------------------------------------------------------
+.attach_ring_attributes <- function(boundaries, density, sm, n, step_mm, ew_lw_threshold) {
+  ring_starts <- c(1L, boundaries); ring_ends <- c(boundaries - 1L, n)
+  n_rings <- length(ring_starts)
+
+  peak_channel <- integer(n_rings); peak_density <- integer(n_rings)
+  prominence   <- integer(n_rings); ew_only <- logical(n_rings)
+  for (k in seq_len(n_rings)) {
+    seg <- ring_starts[k]:ring_ends[k]
+    pk  <- seg[which.max(sm[seg])]
+    peak_channel[k] <- pk
+    peak_density[k] <- round(sm[pk])
+    prominence[k]   <- round(sm[pk] - min(sm[seg]))
+    ew_only[k]      <- !any(density[seg] >= ew_lw_threshold)
+  }
+
+  widths_mm <- (ring_ends - ring_starts + 1L) * step_mm
+  med_w     <- stats::median(widths_mm)
+  suspect        <- logical(n_rings)
+  suspect_reason <- character(n_rings)
+  for (k in seq_len(n_rings)) {
+    reasons <- character(0)
+    if (peak_density[k] < ew_lw_threshold) reasons <- c(reasons, "weak latewood")
+    if (widths_mm[k] < 0.45 * med_w)       reasons <- c(reasons, "narrow ring")
+    if (length(reasons)) { suspect[k] <- TRUE; suspect_reason[k] <- paste(reasons, collapse = "; ") }
+  }
+
+  attr(boundaries, "ew_only_flags")  <- ew_only
+  attr(boundaries, "peak_channel")   <- peak_channel
+  attr(boundaries, "peak_density")   <- peak_density
+  attr(boundaries, "prominence")     <- prominence
+  attr(boundaries, "suspect")        <- suspect
+  attr(boundaries, "suspect_reason") <- suspect_reason
+  boundaries
+}
+
+
+# ---------------------------------------------------------------------------
 # detect_ring_boundaries
 # Locate ring boundaries (latewood to earlywood transitions) from the density
 # trace. Returns the channel positions marking the first channel of each new
@@ -153,7 +256,10 @@ detect_ring_boundaries <- function(density,
                                    ew_lw_threshold   = 500L,
                                    min_ring_mm       = 1,
                                    smooth_n          = 5L,
-                                   prominence_frac   = 0.08,
+                                   prominence_frac   = 0.12,
+                                   gap_fill          = TRUE,
+                                   gap_k             = 1.9,
+                                   weak_frac         = 0.02,
                                    manual_boundaries = NULL) {
 
   n      <- length(density)
@@ -192,67 +298,31 @@ detect_ring_boundaries <- function(density,
     prom[j]   <- sm[p] - max(left_min, right_min)
   }
 
-  keep  <- prom >= prominence_frac * span
-  peaks <- peaks[keep]
-  prom  <- prom[keep]
-  if (length(peaks) == 0L) return(.no_ring_result(density, ew_lw_threshold))
+  # Strong pass: keep the confident latewood peaks.
+  keep   <- prom >= prominence_frac * span
+  k_peak <- peaks[keep]
+  k_prom <- prom[keep]
+  if (length(k_peak) == 0L) return(.no_ring_result(density, ew_lw_threshold))
 
-  ord <- order(peaks); peaks <- peaks[ord]; prom <- prom[ord]
+  ord <- order(k_peak); k_peak <- k_peak[ord]; k_prom <- k_prom[ord]
   repeat {
-    if (length(peaks) < 2L) break
-    too_close <- which(diff(peaks) < min_ch)
+    if (length(k_peak) < 2L) break
+    too_close <- which(diff(k_peak) < min_ch)
     if (length(too_close) == 0L) break
-    k    <- too_close[1L]
-    drop <- if (prom[k] >= prom[k + 1L]) k + 1L else k
-    peaks <- peaks[-drop]; prom <- prom[-drop]
+    j    <- too_close[1L]
+    drop <- if (k_prom[j] >= k_prom[j + 1L]) j + 1L else j
+    k_peak <- k_peak[-drop]; k_prom <- k_prom[-drop]
   }
 
-  n_rings  <- length(peaks)
-  peak_den <- sm[peaks]
+  boundaries <- .boundaries_from_peaks(sm, k_peak, n)
 
-  boundaries <- integer(0)
-  if (n_rings >= 2L) {
-    for (k in seq_len(n_rings - 1L)) {
-      p1 <- peaks[k]; p2 <- peaks[k + 1L]
-      seg_trough <- p1 + which.min(sm[p1:p2]) - 1L
-      if (seg_trough <= p1 + 1L) {
-        b <- p1 + 1L
-      } else {
-        b <- p1 + which.min(diff(sm[p1:seg_trough]))
-      }
-      boundaries <- c(boundaries, b)
-    }
-  }
+  # Second pass: fill gaps that break the local width trend, using all peaks.
+  if (isTRUE(gap_fill) && length(boundaries) >= 1L)
+    boundaries <- .gap_fill_boundaries(sm, boundaries, n, span, peaks, troughs,
+                                       gap_k, weak_frac, min_ch)
+
   boundaries <- sort(unique(pmin(pmax(boundaries, 2L), n)))
-
-  ring_starts <- c(1L, boundaries)
-  ring_ends   <- c(boundaries - 1L, n)
-  n_rings     <- length(ring_starts)
-
-  ew_only <- logical(n_rings)
-  for (k in seq_len(n_rings))
-    ew_only[k] <- !any(density[ring_starts[k]:ring_ends[k]] >= ew_lw_threshold)
-
-  widths_mm <- (ring_ends - ring_starts + 1L) * step_mm
-  med_w     <- stats::median(widths_mm)
-  thr       <- prominence_frac * span
-  suspect        <- logical(n_rings)
-  suspect_reason <- character(n_rings)
-  for (k in seq_len(n_rings)) {
-    reasons <- character(0)
-    if (peak_den[k] < ew_lw_threshold) reasons <- c(reasons, "weak latewood")
-    if (prom[k] < 1.5 * thr)           reasons <- c(reasons, "low prominence")
-    if (widths_mm[k] < 0.45 * med_w)   reasons <- c(reasons, "narrow ring")
-    if (length(reasons)) { suspect[k] <- TRUE; suspect_reason[k] <- paste(reasons, collapse = "; ") }
-  }
-
-  attr(boundaries, "ew_only_flags")  <- ew_only
-  attr(boundaries, "peak_channel")   <- peaks
-  attr(boundaries, "peak_density")   <- round(peak_den)
-  attr(boundaries, "prominence")     <- round(prom)
-  attr(boundaries, "suspect")        <- suspect
-  attr(boundaries, "suspect_reason") <- suspect_reason
-  boundaries
+  .attach_ring_attributes(boundaries, density, sm, n, step_mm, ew_lw_threshold)
 }
 
 
@@ -431,7 +501,7 @@ process_scn <- function(filepath,
                         min_ring_mm       = 1,
                         smooth_n          = 5L,
                         air_threshold     = 200L,
-                        prominence_frac   = 0.08,
+                        prominence_frac   = 0.12,
                         manual_boundaries = NULL,
                         rings_offset      = NULL,
                         plot_dir          = NULL) {

@@ -1,4 +1,4 @@
-#10.06.26 19:45 NZST
+#10.06.26 22:30 NZST
 # ---------------------------------------------------------------------------
 # ring_review.R
 # Classify detected rings as confirmed (latewood present) or provisional

@@ -79,10 +79,14 @@ prominence**:
 
 1. smooth the trace (5-point running mean);
 2. find latewood peaks (local maxima) and earlywood troughs (local minima);
-3. keep peaks whose prominence exceeds an **adaptive** threshold
-   (`prominence_frac × (max − min)`), so weak inner-ring latewood is retained;
-4. enforce a minimum ring width;
-5. place each boundary at the steepest density drop after a latewood peak.
+3. **strong pass**: keep peaks whose prominence exceeds `prominence_frac` times
+   the trace range, placing each boundary at the steepest density drop after a
+   latewood peak;
+4. **gap-fill pass**: take the local expected ring width from the median of the
+   neighbouring gaps, so the test follows the smooth decline in ring width, then
+   for any gap wider than `gap_k` times that expected width, insert the
+   strongest sub-threshold edges inside it. This rescues faint outer rings the
+   strong pass merged, without relaxing the threshold elsewhere.
 
 Rings are flagged **suspect** (possible false / intra-annual, weak latewood,
 low prominence, or anomalously narrow) and surfaced for operator review rather
@@ -113,7 +117,7 @@ results <- process_scn(
   min_ring_mm     = 1,
   smooth_n        = 5L,
   air_threshold   = 200L,
-  prominence_frac = 0.08,    # adaptive latewood-peak prominence cut-off
+  prominence_frac = 0.12,    # strong-pass latewood-peak prominence cut-off
   plot_dir        = "output/densitometry/plots"
 )
 ```

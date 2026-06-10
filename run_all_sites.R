@@ -1,4 +1,4 @@
-#10.06.26 18:20 NZST
+#10.06.26 22:30 NZST
 # ---------------------------------------------------------------------------
 # run_all_sites.R
 # Run detection and the confirmed/provisional classification over every site
@@ -54,7 +54,7 @@ for (forest_dir in forests) {
 # Process one scan/reference pair: detect, classify, plot, and return the
 # per-core parity, per-ring detail, and per-core summary rows.
 process_pair <- function(task) {
-  results   <- process_scn(task$scn, prominence_frac = 0.08, plot_dir = NULL)
+  results   <- process_scn(task$scn, prominence_frac = 0.12, plot_dir = NULL)
   reference <- parse_dat(task$dat)
 
   cmp <- compare_to_dat(results, reference)
