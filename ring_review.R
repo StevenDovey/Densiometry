@@ -237,6 +237,7 @@ plot_review <- function(density, cls,
                         ew_lw_threshold = 500L,
                         core_id         = "",
                         join_channels   = integer(0),
+                        operator_added  = integer(0),
                         file            = NULL) {
 
   if (!is.null(file)) {
@@ -248,10 +249,16 @@ plot_review <- function(density, cls,
   y_max <- max(density) + 80L
   op <- par(mar = c(4.2, 4.5, 3, 1)); on.exit(par(op), add = TRUE)
 
+  edited <- length(operator_added) > 0L
+  main_label <- if (edited)
+    paste0("Core ", core_id, ": operator-corrected")
+  else
+    paste0("Core ", core_id, ": measured detection and juvenile-zone estimate")
+
   plot(x_mm, density, type = "n", las = 1, ylim = c(0, y_max), yaxt = "n",
        xlab = "Distance from inner edge (mm)",
        ylab = expression("Density (kg m"^{-3}*")"),
-       main = paste0("Core ", core_id, ": measured detection and juvenile-zone estimate"))
+       main = main_label)
   .density_yaxis(y_max)
 
   if (cls$zone_end_ch > 0L)
@@ -260,19 +267,30 @@ plot_review <- function(density, cls,
   abline(h = ew_lw_threshold, col = "firebrick", lty = 2, lwd = 3)
   lines(x_mm, density, lwd = 1.6, col = "grey25")
 
-  abline(v = cls$confirmed   * step_mm, col = "steelblue4",  lty = 1, lwd = 4)
-  abline(v = cls$provisional * step_mm, col = "darkorange2", lty = 2, lwd = 4)
-  abline(v = cls$estimated   * step_mm, col = "goldenrod3",  lty = 3, lwd = 3.5)
-  abline(v = join_channels   * step_mm, col = "purple3",     lty = 1, lwd = 3)
+  abline(v = cls$confirmed   * step_mm, col = "steelblue4",     lty = 1, lwd = 4)
+  abline(v = cls$provisional * step_mm, col = "darkorange2",    lty = 2, lwd = 4)
+  abline(v = cls$estimated   * step_mm, col = "goldenrod3",     lty = 3, lwd = 3.5)
+  abline(v = join_channels   * step_mm, col = "purple3",        lty = 1, lwd = 3)
+  abline(v = operator_added  * step_mm, col = "mediumseagreen", lty = 1, lwd = 4)
 
-  legend("bottomright",
-         legend = c("Density", sprintf("Latewood threshold (%d)", ew_lw_threshold),
-                    "Juvenile review zone", "Confirmed boundary",
-                    "Provisional boundary", "Spacing estimate", "Piece join"),
-         col = c("grey25", "firebrick", "#eef0f4", "steelblue4",
-                 "darkorange2", "goldenrod3", "purple3"),
-         lty = c(1, 2, NA, 1, 2, 3, 1), pch = c(NA, NA, 15, NA, NA, NA, NA),
-         pt.cex = 2, lwd = c(1.6, 3, NA, 4, 4, 3.5, 3),
+  leg_labels <- c("Density", sprintf("Latewood threshold (%d)", ew_lw_threshold),
+                  "Juvenile review zone", "Confirmed boundary",
+                  "Provisional boundary", "Spacing estimate", "Piece join")
+  leg_cols   <- c("grey25", "firebrick", "#eef0f4", "steelblue4",
+                  "darkorange2", "goldenrod3", "purple3")
+  leg_lty    <- c(1, 2, NA, 1, 2, 3, 1)
+  leg_pch    <- c(NA, NA, 15, NA, NA, NA, NA)
+  leg_lwd    <- c(1.6, 3, NA, 4, 4, 3.5, 3)
+  if (edited) {
+    leg_labels <- c(leg_labels, "Operator added")
+    leg_cols   <- c(leg_cols,   "mediumseagreen")
+    leg_lty    <- c(leg_lty,    1)
+    leg_pch    <- c(leg_pch,    NA)
+    leg_lwd    <- c(leg_lwd,    4)
+  }
+
+  legend("bottomright", legend = leg_labels, col = leg_cols,
+         lty = leg_lty, pch = leg_pch, pt.cex = 2, lwd = leg_lwd,
          bty = "o", bg = "white", box.col = "grey70", cex = 0.75)
 
   invisible(NULL)

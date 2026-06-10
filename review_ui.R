@@ -67,7 +67,11 @@ for (i in seq_len(nrow(W))) {
   b1 <- edit_core(d, b0, step_mm = core$step_mm, title = title,
                   estimated = est)
 
-  st <- ring_statistics(d, b1, step_mm = core$step_mm)
+  tol_ch  <- ceiling(1.5 / core$step_mm)
+  op_add  <- b1[vapply(b1, function(x) !length(b0) || min(abs(x - b0)) > tol_ch, logical(1L))]
+  cls1    <- classify_and_infill(d, b1, step_mm = core$step_mm)
+
+  st <- cls1$stats
   st$scn_file <- row$scn_file
   st$core_id  <- row$core_id
   st <- st[, c("scn_file", "core_id", setdiff(names(st), c("scn_file", "core_id")))]
@@ -76,6 +80,9 @@ for (i in seq_len(nrow(W))) {
   dir.create(edited_dir, recursive = TRUE, showWarnings = FALSE)
   tag <- gsub("[^A-Za-z0-9_-]", "_", paste0(sub("\\.[^.]*$", "", row$scn_file), "_", row$core_id))
   write.csv(st, file.path(edited_dir, paste0(tag, "_edited.csv")), row.names = FALSE, na = "")
+  plot_review(d, cls1, step_mm = core$step_mm, core_id = row$core_id,
+              operator_added = op_add,
+              file = file.path(edited_dir, paste0(tag, "_edited.png")))
 
   need_header <- !file.exists(resume_file)
   write.table(data.frame(scn_file = row$scn_file, core_id = row$core_id),
