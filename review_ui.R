@@ -7,12 +7,12 @@
 # interactive click editor, and writes the corrected ring table to that set's
 # own output/edited/.
 #
-# Spacing-estimated ring proposals are shown as tomato dashed lines; click one
-# to accept it as a confirmed boundary. Suspect boundaries are shown in firebrick.
+# Tomato dashed lines are spacing-based predictions for scan-dropout gaps only
+# (density < 200 for >= 5 mm). Click one to accept it as a confirmed boundary.
+# Suspect boundaries are shown in firebrick.
 #
 # Click DONE to advance to the next core. Click EXIT to stop and resume later.
-# Click EXIT at any time to stop — already-edited cores are saved and skipped on
-# the next run. Progress is stored in review_resume.csv at the root folder.
+# Progress is stored in review_resume.csv at the root folder.
 #
 # Usage: Rscript review_ui.R "<root folder>"   (defaults to the current folder)
 # Requires: ring_review.R, densitometry.R
@@ -20,6 +20,8 @@
 
 # setwd(dirname(rstudioapi::getSourceEditorContext()$path))   # uncomment when sourcing in RStudio
 source("ring_review.R")
+
+show_predicted <- TRUE   # set FALSE to hide tomato predicted-ring proposals
 
 root <- commandArgs(trailingOnly = TRUE)[1]
 if (is.na(root)) root <- "."
@@ -57,8 +59,7 @@ for (i in seq_len(nrow(W))) {
   d    <- trim_air_channels(core$density, 200L)
 
   b0  <- detect_ring_boundaries(d, step_mm = core$step_mm)
-  cls <- classify_and_infill(d, b0, step_mm = core$step_mm)
-  est <- sort(unique(c(cls$estimated, estimate_artifact_gaps(d, b0, step_mm = core$step_mm))))
+  est <- if (show_predicted) estimate_artifact_gaps(d, b0, step_mm = core$step_mm) else integer(0)
 
   title <- sprintf("%s  core %s   [%d of %d to check]   %s",
                    sub("\\.[^.]*$", "", row$scn_file), row$core_id, i, nrow(W),
