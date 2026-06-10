@@ -17,7 +17,7 @@ dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 cores <- parse_scn(scn_file)
 dat   <- parse_dat(dat_file)
 
-results <- process_scn(scn_file, prominence_frac = 0.08, plot_dir = NULL)
+results <- process_scn(scn_file, prominence_frac = 0.12, plot_dir = NULL)
 parity  <- compare_to_dat(results, dat)
 write.csv(parity, file.path(output_dir, "AK6_parity_default.csv"),
           row.names = FALSE, na = "")

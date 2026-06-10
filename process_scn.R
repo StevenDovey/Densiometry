@@ -1,4 +1,4 @@
-#10.06.26 17:20 NZST
+#10.06.26 22:30 NZST
 # ---------------------------------------------------------------------------
 # process_scn.R
 # Run the detection pipeline on AK6.SCN, write per-core and combined ring
@@ -17,10 +17,10 @@ dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 results <- process_scn(
   filepath          = scn_file,
   ew_lw_threshold   = 500L,
-  min_ring_mm       = 2,
+  min_ring_mm       = 1,
   smooth_n          = 5L,
   air_threshold     = 200L,
-  prominence_frac   = 0.08,
+  prominence_frac   = 0.12,
   manual_boundaries = NULL,
   rings_offset      = NULL,
   plot_dir          = plot_dir

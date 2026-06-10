@@ -1,4 +1,4 @@
-#10.06.26 16:30 NZST
+#10.06.26 22:30 NZST
 # ---------------------------------------------------------------------------
 # review_run.R
 # Run ring detection and the confirmed/provisional classification over one
@@ -29,7 +29,7 @@ for (scn in scn_files) {
 
   for (cid in names(cores)) {
     d <- trim_air_channels(cores[[cid]]$density, 200L)
-    b <- detect_ring_boundaries(d, step_mm = cores[[cid]]$step_mm, prominence_frac = 0.08)
+    b <- detect_ring_boundaries(d, step_mm = cores[[cid]]$step_mm, prominence_frac = 0.12)
 
     is_error <- length(b) == 0L && max(d) < 500L
     if (is_error) {
