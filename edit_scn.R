@@ -1,0 +1,34 @@
+#11.06.26 01:35 NZST
+# ---------------------------------------------------------------------------
+# edit_scn.R
+# Open one core for interactive operator editing and write the corrected ring
+# table to CSV (the new reference). Click a boundary line to remove it, click a
+# gap to add one, right-click to finish. Runs on a machine with a screen.
+#
+# Usage: Rscript edit_scn.R "<scn file>" "<core id>"
+# Requires: ring_review.R, densitometry.R
+# ---------------------------------------------------------------------------
+
+source("ring_review.R")
+
+args    <- commandArgs(trailingOnly = TRUE)
+scn     <- args[1]
+core_id <- args[2]
+out_dir <- file.path("output", "densitometry", "edited")
+dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
+
+cores <- parse_scn(scn)
+core  <- cores[[core_id]]
+d     <- trim_air_channels(core$density, 200L)
+
+b0 <- detect_ring_boundaries(d, step_mm = core$step_mm)
+b1 <- edit_core(d, b0, step_mm = core$step_mm)
+
+stats <- ring_statistics(d, b1, step_mm = core$step_mm)
+stats$scn_file <- basename(scn)
+stats$core_id  <- core_id
+stats <- stats[, c("scn_file", "core_id", setdiff(names(stats), c("scn_file", "core_id")))]
+
+out_path <- file.path(out_dir, paste0(gsub("[^A-Za-z0-9_-]", "_",
+            paste0(sub("\\.[^.]*$", "", basename(scn)), "_", core_id)), "_edited.csv"))
+write.csv(stats, out_path, row.names = FALSE, na = "")
