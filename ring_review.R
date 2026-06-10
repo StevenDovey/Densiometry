@@ -1,4 +1,4 @@
-#10.06.26 22:30 NZST
+#11.06.26 00:55 NZST
 # ---------------------------------------------------------------------------
 # ring_review.R
 # Classify detected rings as confirmed (latewood present) or provisional
@@ -81,7 +81,44 @@ classify_and_infill <- function(density, boundaries,
 
 
 # ---------------------------------------------------------------------------
-# plot_review
+# review_signals: reference-free per-core signals for the review-confidence
+# score. rhythm = roughness of the ring-width sequence against its own smooth
+# trend; hf = high-frequency density energy (unresolved narrow rings); edge =
+# median boundary prominence; n_suspect = flagged rings.
+# ---------------------------------------------------------------------------
+review_signals <- function(density, boundaries, step_mm = 0.3, ew_lw_threshold = 500L) {
+  st <- ring_statistics(density, boundaries, step_mm = step_mm, ew_lw_threshold = ew_lw_threshold)
+  w  <- st$ring_width_mm
+  sw <- if (length(w) > 4) as.numeric(stats::filter(w, rep(1/5, 5), sides = 2)) else w
+  sw[is.na(sw)] <- w[is.na(sw)]
+  data.frame(
+    n_R     = nrow(st),
+    len_mm  = round(length(density) * step_mm, 1),
+    rhythm  = round(mean(abs(w - sw)) / stats::median(w), 3),
+    hf      = round(mean(abs(diff(density))), 1),
+    edge    = round(stats::median(st$prominence, na.rm = TRUE), 1),
+    n_susp  = sum(st$suspect),
+    stringsAsFactors = FALSE)
+}
+
+
+# ---------------------------------------------------------------------------
+# score_review: review-confidence score for the cores of one scan file. Two
+# signals use the file context (same-age stand): a core's ring-count deviation
+# and length ratio against its file siblings. Coefficients were fitted on the
+# reference set (held-out AUC 0.85). A higher score means more likely off, so
+# inspect first.
+# ---------------------------------------------------------------------------
+score_review <- function(df) {
+  count_dev <- abs(df$n_R - stats::median(df$n_R))
+  len_ratio <- df$len_mm / stats::median(df$len_mm)
+  lp <- -2.9437 + 0.7106 * count_dev + 0.0103 * len_ratio +
+         2.4150 * df$rhythm + 0.0297 * df$hf - 0.0030 * df$edge + 0.0231 * df$n_susp
+  df$review_score <- round(1 / (1 + exp(-lp)), 3)
+  df$review_flag  <- df$review_score >= 0.5
+  df
+}
+
 # Dual display: confirmed boundaries as solid lines, provisional boundaries as
 # dashed lines, spacing-estimated boundaries as dotted lines, and the juvenile
 # review zone shaded. Writes a PNG when file is supplied.

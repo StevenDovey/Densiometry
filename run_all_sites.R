@@ -1,4 +1,4 @@
-#10.06.26 22:30 NZST
+#11.06.26 00:55 NZST
 # ---------------------------------------------------------------------------
 # run_all_sites.R
 # Run detection and the confirmed/provisional classification over every site
@@ -71,6 +71,7 @@ process_pair <- function(task) {
     b    <- results[[cid]]$boundaries
     step <- results[[cid]]$core$step_mm
     cls  <- classify_and_infill(d, b, step_mm = step)
+    sig  <- review_signals(d, b, step_mm = step)
 
     st <- cls$stats
     st$site     <- task$site
@@ -88,6 +89,8 @@ process_pair <- function(task) {
       n_estimated      = cls$n_estimated,
       total_estimate   = cls$n_confirmed + cls$n_provisional + cls$n_estimated,
       juvenile_zone_mm = round(cls$zone_end_ch * step, 1),
+      n_R = sig$n_R, len_mm = sig$len_mm, rhythm = sig$rhythm,
+      hf = sig$hf, edge = sig$edge, n_susp = sig$n_susp,
       stringsAsFactors = FALSE)
 
     tag <- gsub("[^A-Za-z0-9_-]", "_", paste0(sub("\\.[^.]*$", "", basename(task$scn)), "_", cid))
@@ -112,6 +115,9 @@ parallel::stopCluster(cl)
 all_parity <- do.call(rbind, lapply(out, function(o) o$parity))
 all_ring   <- do.call(rbind, lapply(out, function(o) o$ring))
 all_core   <- do.call(rbind, lapply(out, function(o) o$core))
+
+# Review-confidence score, computed within each scan file (same-age stand).
+all_core <- do.call(rbind, lapply(split(all_core, all_core$scn_file), score_review))
 
 for (forest in unique(all_core$site)) {
   site_out <- file.path(out_root, forest)

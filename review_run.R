@@ -1,19 +1,19 @@
-#10.06.26 22:30 NZST
+#11.06.26 01:15 NZST
 # ---------------------------------------------------------------------------
 # review_run.R
-# Run ring detection and the confirmed/provisional classification over one
-# forest, render the dual-display plots, and write per-core and per-ring
-# results plus an error-core log to CSV.
+# New-scan driver. Run ring detection and the confirmed/provisional
+# classification over a folder of .SCN files, with no reference needed, render
+# the dual-display plots, and write per-core and per-ring results, an
+# error-core log, and a reference-free review score so off cores sort first.
 #
-# Usage: Rscript review_run.R "<forest folder under trials completed>"
+# Usage: Rscript review_run.R "<folder containing .SCN files>"
 # Requires: ring_review.R, densitometry.R
 # ---------------------------------------------------------------------------
 
 source("ring_review.R")
 
-forest     <- commandArgs(trailingOnly = TRUE)[1]
-base_dir   <- file.path("trials completed", forest)
-out_dir    <- file.path("output", "densitometry", "review", forest)
+base_dir   <- commandArgs(trailingOnly = TRUE)[1]
+out_dir    <- file.path("output", "densitometry", "review", basename(base_dir))
 plot_dir   <- file.path(out_dir, "plots")
 dir.create(plot_dir, recursive = TRUE, showWarnings = FALSE)
 
@@ -41,6 +41,7 @@ for (scn in scn_files) {
     }
 
     cls <- classify_and_infill(d, b, step_mm = cores[[cid]]$step_mm)
+    sig <- review_signals(d, b, step_mm = cores[[cid]]$step_mm)
     plot_review(d, cls, step_mm = cores[[cid]]$step_mm, core_id = cid,
                 file = file.path(plot_dir, paste0(gsub("[^A-Za-z0-9_-]", "_",
                        paste0(sub("\\.[^.]*$", "", basename(scn)), "_", cid)), ".png")))
@@ -59,11 +60,15 @@ for (scn in scn_files) {
       n_estimated     = cls$n_estimated,
       total_estimate  = cls$n_confirmed + cls$n_provisional + cls$n_estimated,
       juvenile_zone_mm = round(cls$zone_end_ch * cores[[cid]]$step_mm, 1),
+      n_R = sig$n_R, len_mm = sig$len_mm, rhythm = sig$rhythm,
+      hf = sig$hf, edge = sig$edge, n_susp = sig$n_susp,
       stringsAsFactors = FALSE)
   }
 }
 
-write.csv(do.call(rbind, per_core), file.path(out_dir, "core_summary.csv"),
+core_tbl <- do.call(rbind, per_core)
+core_tbl <- do.call(rbind, lapply(split(core_tbl, core_tbl$scn_file), score_review))
+write.csv(core_tbl, file.path(out_dir, "core_summary.csv"),
           row.names = FALSE, na = "")
 write.csv(do.call(rbind, per_ring), file.path(out_dir, "ring_detail.csv"),
           row.names = FALSE, na = "")
