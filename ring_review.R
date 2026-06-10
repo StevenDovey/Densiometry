@@ -120,6 +120,46 @@ score_review <- function(df) {
 }
 
 # ---------------------------------------------------------------------------
+# estimate_artifact_gaps: find interior low-density stretches (scan dropouts,
+# piece joins) and place evenly-spaced predicted ring positions within them.
+# Ring width is estimated from the median spacing of detected boundaries on
+# each side of the gap. Returns channel indices of predicted positions.
+# ---------------------------------------------------------------------------
+estimate_artifact_gaps <- function(density, boundaries, step_mm = 0.3,
+                                   gap_threshold = 200L, gap_min_mm = 5) {
+  gap_min_ch <- ceiling(gap_min_mm / step_mm)
+  is_gap     <- density < gap_threshold
+  rle_res    <- rle(is_gap)
+  ends       <- cumsum(rle_res$lengths)
+  starts     <- c(1L, ends[-length(ends)] + 1L)
+  estimated  <- integer(0)
+
+  for (k in seq_along(rle_res$values)) {
+    if (!rle_res$values[k] || rle_res$lengths[k] < gap_min_ch) next
+    g_start <- starts[k]
+    g_end   <- ends[k]
+    if (g_start <= 1L || g_end >= length(density)) next
+
+    before_b <- boundaries[boundaries < g_start]
+    after_b  <- boundaries[boundaries > g_end]
+    w_before <- if (length(before_b) >= 2L) stats::median(diff(before_b)) else NA_real_
+    w_after  <- if (length(after_b)  >= 2L) stats::median(diff(after_b))  else NA_real_
+    w_est    <- stats::median(c(w_before, w_after), na.rm = TRUE)
+    if (is.na(w_est) || w_est <= 0) next
+
+    n_est <- max(1L, round((g_end - g_start) / w_est))
+    pos   <- round(seq(g_start, g_end, length.out = n_est + 1L))
+    pos   <- pos[-c(1L, length(pos))]
+    all_b <- c(boundaries, estimated)
+    for (p in pos)
+      if (!length(all_b) || min(abs(p - all_b)) >= w_est / 2)
+        estimated <- c(estimated, as.integer(p))
+  }
+  sort(estimated)
+}
+
+
+# ---------------------------------------------------------------------------
 # apply_clicks: toggle ring boundaries from operator click positions (channels).
 # A click within tol of an existing boundary removes it; otherwise it adds one.
 # ---------------------------------------------------------------------------

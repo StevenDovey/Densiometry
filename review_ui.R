@@ -58,12 +58,13 @@ for (i in seq_len(nrow(W))) {
 
   b0  <- detect_ring_boundaries(d, step_mm = core$step_mm)
   cls <- classify_and_infill(d, b0, step_mm = core$step_mm)
+  est <- sort(unique(c(cls$estimated, estimate_artifact_gaps(d, b0, step_mm = core$step_mm))))
 
   title <- sprintf("%s  core %s   [%d of %d to check]   %s",
                    sub("\\.[^.]*$", "", row$scn_file), row$core_id, i, nrow(W),
                    basename(row$set_dir))
   b1 <- edit_core(d, b0, step_mm = core$step_mm, title = title,
-                  estimated = cls$estimated)
+                  estimated = est)
 
   st <- ring_statistics(d, b1, step_mm = core$step_mm)
   st$scn_file <- row$scn_file
