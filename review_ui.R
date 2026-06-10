@@ -32,6 +32,9 @@ for (sf in summaries) {
 W <- do.call(rbind, work)
 W <- W[order(-W$review_score), ]
 
+dev.new(noRStudioGD = TRUE)
+on.exit(dev.off(), add = TRUE)
+
 for (i in seq_len(nrow(W))) {
   row     <- W[i, ]
   scn     <- list.files(row$set_dir, pattern = paste0("^", row$scn_file, "$"),
@@ -39,7 +42,11 @@ for (i in seq_len(nrow(W))) {
   core    <- parse_scn(scn)[[as.character(row$core_id)]]
   d       <- trim_air_channels(core$density, 200L)
 
-  b1 <- edit_core(d, detect_ring_boundaries(d, step_mm = core$step_mm), step_mm = core$step_mm)
+  title <- sprintf("%s  core %s   [%d of %d to check]   %s",
+                   sub("\\.[^.]*$", "", row$scn_file), row$core_id, i, nrow(W),
+                   basename(row$set_dir))
+  b1 <- edit_core(d, detect_ring_boundaries(d, step_mm = core$step_mm),
+                  step_mm = core$step_mm, title = title)
 
   st <- ring_statistics(d, b1, step_mm = core$step_mm)
   st$scn_file <- row$scn_file

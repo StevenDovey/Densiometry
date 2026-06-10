@@ -21,8 +21,11 @@ cores <- parse_scn(scn)
 core  <- cores[[core_id]]
 d     <- trim_air_channels(core$density, 200L)
 
+dev.new(noRStudioGD = TRUE)
+on.exit(dev.off(), add = TRUE)
+title <- sprintf("%s  core %s", sub("\\.[^.]*$", "", basename(scn)), core_id)
 b0 <- detect_ring_boundaries(d, step_mm = core$step_mm)
-b1 <- edit_core(d, b0, step_mm = core$step_mm)
+b1 <- edit_core(d, b0, step_mm = core$step_mm, title = title)
 
 stats <- ring_statistics(d, b1, step_mm = core$step_mm)
 stats$scn_file <- basename(scn)

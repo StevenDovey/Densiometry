@@ -140,21 +140,26 @@ apply_clicks <- function(boundaries, clicks_ch, tol = 6L) {
 # corrected boundary object. Runs on a machine with an interactive screen.
 # ---------------------------------------------------------------------------
 edit_core <- function(density, boundaries, step_mm = 0.3,
-                      ew_lw_threshold = 500L, tol_mm = 1.5) {
-  b   <- as.integer(boundaries)
-  tol <- ceiling(tol_mm / step_mm)
+                      ew_lw_threshold = 500L, tol_mm = 1.5, title = "") {
+  b    <- as.integer(boundaries)
+  tol  <- ceiling(tol_mm / step_mm)
+  x    <- seq_along(density) * step_mm
+  ymax <- max(density) + 80L
+  bx1 <- max(x) * 0.88; bx2 <- max(x); by1 <- ymax * 0.90; by2 <- ymax
   repeat {
     nb <- detect_ring_boundaries(density, step_mm, ew_lw_threshold, manual_boundaries = b)
     st <- ring_statistics(density, nb, step_mm = step_mm, ew_lw_threshold = ew_lw_threshold)
-    x  <- seq_along(density) * step_mm
-    plot(x, density, type = "l", col = "grey30", lwd = 0.8, las = 1,
-         ylim = c(0, max(density) + 80L), xlab = "mm", ylab = "density",
-         main = sprintf("Edit: click line to remove, gap to add. Right-click to finish.  rings=%d", nrow(st)))
-    abline(h = ew_lw_threshold, col = "orange", lty = 2)
+    plot(x, density, type = "l", col = "grey30", lwd = 1.6, las = 1,
+         ylim = c(0, ymax), xlab = "mm", ylab = "density",
+         main = sprintf("%s   rings=%d   (click line=remove, gap=add, DONE=next)", title, nrow(st)))
+    abline(h = ew_lw_threshold, col = "orange", lty = 2, lwd = 3)
     susp <- c(FALSE, st$suspect[-1])
-    abline(v = b * step_mm, col = ifelse(susp, "red", "steelblue3"), lwd = 1.1)
+    abline(v = b * step_mm, col = ifelse(susp, "red", "steelblue3"), lwd = 4)
+    rect(bx1, by1, bx2, by2, col = "palegreen3", border = "black", lwd = 2)
+    text((bx1 + bx2) / 2, (by1 + by2) / 2, "DONE", font = 2, cex = 1.2)
     cl <- locator(1)
     if (is.null(cl)) break
+    if (cl$x >= bx1 && cl$x <= bx2 && cl$y >= by1 && cl$y <= by2) break
     b <- apply_clicks(b, round(cl$x / step_mm), tol)
   }
   detect_ring_boundaries(density, step_mm, ew_lw_threshold, manual_boundaries = b)
@@ -189,13 +194,13 @@ plot_review <- function(density, cls,
   if (cls$zone_end_ch > 0L)
     rect(0, 0, cls$zone_end_ch * step_mm, y_max, col = "#eef0f4", border = NA)
 
-  abline(h = ew_lw_threshold, col = "firebrick", lty = 2)
-  lines(x_mm, density, lwd = 0.8, col = "grey25")
+  abline(h = ew_lw_threshold, col = "firebrick", lty = 2, lwd = 3)
+  lines(x_mm, density, lwd = 1.6, col = "grey25")
 
-  abline(v = cls$confirmed   * step_mm, col = "steelblue4", lty = 1, lwd = 1.1)
-  abline(v = cls$provisional * step_mm, col = "darkorange3", lty = 2, lwd = 1.1)
-  abline(v = cls$estimated   * step_mm, col = "darkorange3", lty = 3, lwd = 1.0)
-  abline(v = join_channels   * step_mm, col = "purple3",    lty = 1, lwd = 1.6)
+  abline(v = cls$confirmed   * step_mm, col = "steelblue4", lty = 1, lwd = 4)
+  abline(v = cls$provisional * step_mm, col = "darkorange3", lty = 2, lwd = 4)
+  abline(v = cls$estimated   * step_mm, col = "darkorange3", lty = 3, lwd = 3.5)
+  abline(v = join_channels   * step_mm, col = "purple3",    lty = 1, lwd = 3)
 
   legend("bottomright",
          legend = c("Density", sprintf("Latewood threshold (%d)", ew_lw_threshold),
@@ -204,7 +209,7 @@ plot_review <- function(density, cls,
          col = c("grey25", "firebrick", "#eef0f4", "steelblue4",
                  "darkorange3", "darkorange3", "purple3"),
          lty = c(1, 2, NA, 1, 2, 3, 1), pch = c(NA, NA, 15, NA, NA, NA, NA),
-         pt.cex = 2, lwd = c(0.8, 1, NA, 1.1, 1.1, 1, 1.6),
+         pt.cex = 2, lwd = c(1.6, 3, NA, 4, 4, 3.5, 3),
          bty = "o", bg = "white", box.col = "grey70", cex = 0.75)
 
   invisible(NULL)
