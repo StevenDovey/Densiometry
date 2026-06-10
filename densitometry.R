@@ -1,4 +1,4 @@
-#10.06.26 19:45 NZST
+#10.06.26 21:15 NZST
 # ---------------------------------------------------------------------------
 # FRI Direct-Scanning X-Ray Densitometer data processing.
 # Reimplements the EDITOR program from Cown and Clement (1983), Wood Science
@@ -151,7 +151,7 @@ trim_air_channels <- function(density, threshold = 200L) {
 detect_ring_boundaries <- function(density,
                                    step_mm           = 0.3,
                                    ew_lw_threshold   = 500L,
-                                   min_ring_mm       = 2,
+                                   min_ring_mm       = 1,
                                    smooth_n          = 5L,
                                    prominence_frac   = 0.08,
                                    manual_boundaries = NULL) {
@@ -428,7 +428,7 @@ plot_density_profile <- function(density,
 # ---------------------------------------------------------------------------
 process_scn <- function(filepath,
                         ew_lw_threshold   = 500L,
-                        min_ring_mm       = 2,
+                        min_ring_mm       = 1,
                         smooth_n          = 5L,
                         air_threshold     = 200L,
                         prominence_frac   = 0.08,
@@ -569,7 +569,7 @@ compare_to_dat <- function(results, dat) {
 calibrate_prominence <- function(density, target_n,
                                  step_mm         = 0.3,
                                  ew_lw_threshold = 500L,
-                                 min_ring_mm     = 2,
+                                 min_ring_mm     = 1,
                                  smooth_n        = 5L,
                                  grid            = seq(0.02, 0.30, by = 0.005)) {
   ns <- vapply(grid, function(f) {

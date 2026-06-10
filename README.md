@@ -110,7 +110,7 @@ source("densitometry.R")
 results <- process_scn(
   filepath        = "AK6.SCN",
   ew_lw_threshold = 500L,    # kg/m³ — EW/LW boundary for radiata pine
-  min_ring_mm     = 2,
+  min_ring_mm     = 1,
   smooth_n        = 5L,
   air_threshold   = 200L,
   prominence_frac = 0.08,    # adaptive latewood-peak prominence cut-off
