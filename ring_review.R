@@ -1,4 +1,4 @@
-#11.06.26 00:55 NZST
+#10.06.26 20:21 NZST
 # ---------------------------------------------------------------------------
 # ring_review.R
 # Classify detected rings as confirmed (latewood present) or provisional
@@ -136,7 +136,7 @@ apply_clicks <- function(boundaries, clicks_ch, tol = 6L) {
 # ---------------------------------------------------------------------------
 # edit_core: interactive base-R editor. Plots the core with current boundaries
 # (suspect rings in red), then takes operator clicks: click a line to remove it,
-# click a gap to add a boundary. Right-click or Esc finishes. Returns the
+# click a gap to add a boundary. Click DONE (or right-click in the pop-out window) finishes. Returns the
 # corrected boundary object. Runs on a machine with an interactive screen.
 # ---------------------------------------------------------------------------
 edit_core <- function(density, boundaries, step_mm = 0.3,

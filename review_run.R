@@ -1,4 +1,4 @@
-#11.06.26 01:15 NZST
+#10.06.26 20:21 NZST
 # ---------------------------------------------------------------------------
 # review_run.R
 # New-scan driver. Run ring detection and the confirmed/provisional
@@ -10,6 +10,7 @@
 # Requires: ring_review.R, densitometry.R
 # ---------------------------------------------------------------------------
 
+# setwd(dirname(rstudioapi::getSourceEditorContext()$path))   # uncomment when sourcing in RStudio
 source("ring_review.R")
 
 base_dir   <- commandArgs(trailingOnly = TRUE)[1]

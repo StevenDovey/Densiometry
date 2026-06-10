@@ -1,4 +1,4 @@
-#11.06.26 02:45 NZST
+#10.06.26 20:21 NZST
 # ---------------------------------------------------------------------------
 # review_ui.R
 # Review loop across a whole run. Point it at the root; it finds every set with
@@ -8,11 +8,12 @@
 # own output/edited/.
 #
 # Usage: Rscript review_ui.R "<root folder>"   (defaults to the current folder)
-# Click a boundary line to remove it, a gap to add one, right-click for the next
+# Click a boundary line to remove it, a gap to add one, click DONE (or right-click) for the next
 # core. Runs on a machine with a screen.
 # Requires: ring_review.R, densitometry.R
 # ---------------------------------------------------------------------------
 
+# setwd(dirname(rstudioapi::getSourceEditorContext()$path))   # uncomment when sourcing in RStudio
 source("ring_review.R")
 
 root <- commandArgs(trailingOnly = TRUE)[1]

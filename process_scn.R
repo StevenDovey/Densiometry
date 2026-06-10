@@ -1,4 +1,4 @@
-#10.06.26 22:30 NZST
+#10.06.26 20:21 NZST
 # ---------------------------------------------------------------------------
 # process_scn.R
 # Run the detection pipeline on AK6.SCN, write per-core and combined ring
@@ -7,6 +7,7 @@
 # Requires: densitometry.R
 # ---------------------------------------------------------------------------
 
+# setwd(dirname(rstudioapi::getSourceEditorContext()$path))   # uncomment when sourcing in RStudio
 source("densitometry.R")
 
 scn_file   <- "AK6.SCN"

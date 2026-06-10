@@ -1,4 +1,4 @@
-#11.06.26 00:55 NZST
+#10.06.26 20:21 NZST
 # ---------------------------------------------------------------------------
 # run_all_sites.R
 # Run detection and the confirmed/provisional classification over every site
@@ -13,6 +13,7 @@
 # Requires: ring_review.R, densitometry.R
 # ---------------------------------------------------------------------------
 
+# setwd(dirname(rstudioapi::getSourceEditorContext()$path))   # uncomment when sourcing in RStudio
 source("ring_review.R")
 
 trials_dir <- "trials completed"
