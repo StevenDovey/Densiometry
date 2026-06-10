@@ -1,4 +1,4 @@
-#10.06.26 16:05 NZST
+#10.06.26 19:45 NZST
 # ---------------------------------------------------------------------------
 # ring_review.R
 # Classify detected rings as confirmed (latewood present) or provisional
@@ -102,10 +102,11 @@ plot_review <- function(density, cls,
   y_max <- max(density) + 80L
   op <- par(mar = c(4.2, 4.5, 3, 1)); on.exit(par(op), add = TRUE)
 
-  plot(x_mm, density, type = "n", las = 1, ylim = c(0, y_max),
+  plot(x_mm, density, type = "n", las = 1, ylim = c(0, y_max), yaxt = "n",
        xlab = "Distance from inner edge (mm)",
        ylab = expression("Density (kg m"^{-3}*")"),
        main = paste0("Core ", core_id, ": measured detection and juvenile-zone estimate"))
+  .density_yaxis(y_max)
 
   if (cls$zone_end_ch > 0L)
     rect(0, 0, cls$zone_end_ch * step_mm, y_max, col = "#eef0f4", border = NA)

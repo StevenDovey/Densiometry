@@ -1,4 +1,4 @@
-#10.06.26 17:15 NZST
+#10.06.26 19:45 NZST
 # ---------------------------------------------------------------------------
 # FRI Direct-Scanning X-Ray Densitometer data processing.
 # Reimplements the EDITOR program from Cown and Clement (1983), Wood Science
@@ -337,6 +337,18 @@ ring_statistics <- function(density,
 
 
 # ---------------------------------------------------------------------------
+# .density_yaxis: vertical axis matching the legacy display, labelled ticks
+# every 100 and minor ticks every 50, with faint gridlines at the 100 marks.
+# ---------------------------------------------------------------------------
+.density_yaxis <- function(y_max) {
+  top <- ceiling(y_max / 100) * 100
+  abline(h = seq(0, top, 100), col = "grey88", lwd = 0.5)
+  axis(2, at = seq(0, top, 100), las = 1)
+  axis(2, at = seq(0, top, 50), labels = FALSE, tcl = -0.25)
+}
+
+
+# ---------------------------------------------------------------------------
 # plot_density_profile
 # Annotated density trace: latewood shaded, ring boundaries drawn, ring
 # numbers labelled along the top, latewood peaks marked, suspect rings in red.
@@ -359,11 +371,12 @@ plot_density_profile <- function(density,
   y_max <- max(density) + 80L
 
   op <- par(mar = c(4.2, 4.5, 3, 1)); on.exit(par(op), add = TRUE)
-  plot(x_mm, density, type = "n",
+  plot(x_mm, density, type = "n", yaxt = "n",
        xlab = "Distance from inner edge (mm)",
        ylab = expression("Density (kg m"^{-3}*")"),
        main = paste0("Core ", core_id, ": density profile and ring boundaries"),
        ylim = c(0, y_max), las = 1)
+  .density_yaxis(y_max)
 
   lw_mask <- density >= ew_lw_threshold
   if (any(lw_mask)) {
